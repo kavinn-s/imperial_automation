@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-os.makedirs("data/temp", exist_ok=True)
+TEMP_DIR = tempfile.gettempdir()
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 @app.post("/upload")
 async def upload_file(
@@ -44,12 +46,12 @@ async def upload_file(
         return JSONResponse(status_code=400, content={"error": "Only CSV and Excel files are supported."})
     
     # Save uploaded file temporarily
-    input_path = f"data/temp/upload{input_ext}"
+    input_path = os.path.join(TEMP_DIR, f"upload{input_ext}")
     output_ext = f".{format.lower()}"
     if output_ext not in [".csv", ".xlsx", ".pdf"]:
         output_ext = ".csv"
         
-    output_path = f"data/temp/output{output_ext}"
+    output_path = os.path.join(TEMP_DIR, f"output{output_ext}")
     
     with open(input_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -104,7 +106,7 @@ async def upload_file(
 
 @app.get("/download")
 def download_file(filename: str):
-    file_path = f"data/temp/{filename}"
+    file_path = os.path.join(TEMP_DIR, filename)
     if os.path.exists(file_path):
         display_name = f"Cleaned_Invoices{os.path.splitext(filename)[1]}"
         return FileResponse(file_path, filename=display_name)

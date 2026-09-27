@@ -95,7 +95,10 @@ function App() {
     formData.append('outboundVoicemailDroppedCost', outboundVoicemailDroppedCost)
 
     try {
-      const response = await fetch('http://localhost:8000/upload', {
+      // Use environment variable for backend URL (defaults to localhost if not set)
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      
+      const response = await fetch(`${baseUrl}/upload`, {
         method: 'POST',
         body: formData
       })
@@ -104,7 +107,7 @@ function App() {
 
       if (response.ok) {
         setStats(data.stats)
-        setDownloadUrl(`http://localhost:8000${data.download_url}`)
+        setDownloadUrl(`${baseUrl}${data.download_url}`)
       } else {
         throw new Error(data.error || 'Failed to process file')
       }
@@ -128,7 +131,7 @@ function App() {
     <div className="app-wrapper fade-in">
       <header className="navbar">
         <div className="container nav-content">
-          <div className="logo">Voxy<span>Sync</span></div>
+          <div className="logo">Imperial<span>Automation</span></div>
           <nav>
             <a href="#">Home</a>
             <a href="#">Tools</a>
@@ -448,7 +451,7 @@ function App() {
 
       <footer>
         <div className="container">
-          <p>&copy; 2026 VoxySync. Runs completely locally. No data leaves your machine.</p>
+          <p>&copy; 2026 Imperial Automation. Runs securely.</p>
         </div>
       </footer>
     </div>
