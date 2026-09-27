@@ -95,8 +95,8 @@ function App() {
     formData.append('outboundVoicemailDroppedCost', outboundVoicemailDroppedCost)
 
     try {
-      // Use environment variable for backend URL (defaults to localhost if not set)
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      // Use environment variable for backend URL (defaults to Vercel production URL if not set)
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://imperial-automation-1ar9.vercel.app';
       
       const response = await fetch(`${baseUrl}/upload`, {
         method: 'POST',
