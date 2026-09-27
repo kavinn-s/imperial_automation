@@ -96,7 +96,8 @@ function App() {
 
     try {
       // Use environment variable for backend URL (defaults to Vercel production URL if not set)
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://imperial-automation-1ar9.vercel.app';
+      let baseUrl = import.meta.env.VITE_API_URL || 'https://imperial-automation.vercel.app';
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
       
       const response = await fetch(`${baseUrl}/upload`, {
         method: 'POST',
