@@ -1,0 +1,12 @@
+Caller Name,Caller Phone Number,Call status,Human duration(mins),AI duration(mins),Human Billable unitts,AI Billable units,Total billable units
+Harbor View Medical Center,15305071838,HUMAN_ANSWERED,0.96,0.0,0.15,0.0,0.15
+Golden Valley Diagnostics,16386274758,HUMAN_ANSWERED,0.13,0.49,0.15,0.75,0.9
+-,17622242530,HUMAN_ANSWERED,0.75,0.16,0.15,0.0,0.15
+Harbor View Medical Center,18015462204,HUMAN_ANSWERED,0.03,0.05,0.15,0.0,0.15
+Golden Valley Diagnostics,13984578740,HUMAN_ANSWERED,0.83,0.59,0.15,0.75,0.9
+Maple Street Hospital,19554783530,HUMAN_ANSWERED,0.06,0.32,0.15,0.75,0.9
+Oakwood Pediatrics,16971645906,HUMAN_ANSWERED,0.61,0.12,0.15,0.0,0.15
+Restricted,15878341577,HUMAN_ANSWERED,0.41,0.0,0.15,0.0,0.15
+Bluebell Medical Group,16747541368,HUMAN_ANSWERED,0.1,0.67,0.15,0.75,0.9
+Maple Street Hospital,14441958387,HUMAN_ANSWERED,0.7,0.33,0.15,0.75,0.9
+Bluebell Medical Group,Restricted,HUMAN_ANSWERED,0.38,0.23,0.15,0.0,0.15
