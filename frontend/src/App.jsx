@@ -131,7 +131,7 @@ function App() {
     <div className="app-wrapper fade-in">
       <header className="navbar">
         <div className="container nav-content">
-          <div className="logo">Imperial<span>Automation</span></div>
+          <div className="logo">Voxy<span>Sync</span></div>
           <nav>
             <a href="#">Home</a>
             <a href="#">Tools</a>
@@ -451,7 +451,7 @@ function App() {
 
       <footer>
         <div className="container">
-          <p>&copy; 2026 Imperial Automation. Runs securely.</p>
+          <p>&copy; 2026 VoxySync. Runs completely locally. No data leaves your machine.</p>
         </div>
       </footer>
     </div>
