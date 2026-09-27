@@ -12,14 +12,18 @@ app = FastAPI()
 # Enable CORS for the React frontend (running on a different port like 5173)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for local dev
-    allow_credentials=True,
+    allow_origins=["*"],  # Allows all origins for local dev and github pages
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 TEMP_DIR = tempfile.gettempdir()
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+@app.get("/")
+def health_check():
+    return {"status": "Imperial Automation API is running!"}
 
 @app.post("/upload")
 async def upload_file(
