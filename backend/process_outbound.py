@@ -90,11 +90,13 @@ def classify_transcript(transcript_text: str, record_duration_seconds: float) ->
 # ---------------------------------------------------------------------------
 def ceiling_to_multiple(x: float, sig: float) -> float:
     """Excel CEILING(x, sig): round x up to the nearest multiple of sig."""
+    if x is None or math.isnan(x) or sig == 0:
+        return 0.0
     return math.ceil(round(x / sig, 10)) * sig
 
 
 def human_answered_billable(mins: float, config: dict) -> float:
-    if mins <= config["free_threshold"]:
+    if mins is None or math.isnan(mins) or mins <= config["free_threshold"]:
         return 0.0
     if mins <= config["first_increment_limit"]:
         return config["first_increment_cost"]
@@ -114,6 +116,9 @@ def billable_unit_for(status: str, mins: float, config: dict = None) -> float:
             "voicemail_dropped_cost": 0.25
         }
         
+    if mins is None or math.isnan(mins):
+        mins = 0.0
+
     s = str(status).strip().upper()
     if s == "HUMAN_ANSWERED":
         return human_answered_billable(mins, config.get("human_answered", {}))
@@ -128,14 +133,23 @@ def clean_phone(value) -> str:
     if pd.isna(value):
         return ""
     s = str(value).strip()
+    if s.lower() in ("nan", "none", "null", ""):
+        return ""
     if "E+" in s.upper():
         try:
             return str(int(float(s)))
-        except ValueError:
+        except (ValueError, OverflowError):
             return s
     if s.endswith(".0") and s[:-2].isdigit():
         return s[:-2]
     return s
+
+
+def clean_str(value) -> str:
+    if pd.isna(value):
+        return ""
+    s = str(value).strip()
+    return "" if s.lower() in ("nan", "none", "null") else s
 
 
 # ---------------------------------------------------------------------------
@@ -166,23 +180,34 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
         
         # --- Step 1: fill empty recordDuration from duration ---
         record_duration_raw = row.get(COLUMN_MAP["record_duration"])
-        if pd.isna(record_duration_raw) or str(record_duration_raw).strip() == "":
-            record_duration_raw = row.get(COLUMN_MAP["duration"])
-            stats["duration_copied_from_raw_duration"] += 1
-            row_audit["recordDuration_source"] = "copied_from_duration"
-            row_audit["recordDuration_reason"] = f"recordDuration was empty, copied value '{record_duration_raw}' from duration column."
-            row_modified = True
+        record_dur_empty = pd.isna(record_duration_raw) or str(record_duration_raw).strip().lower() in ("", "nan", "none", "null")
+
+        if record_dur_empty:
+            duration_raw = row.get(COLUMN_MAP["duration"])
+            dur_empty = pd.isna(duration_raw) or str(duration_raw).strip().lower() in ("", "nan", "none", "null")
+            
+            if not dur_empty:
+                record_duration_raw = duration_raw
+                stats["duration_copied_from_raw_duration"] += 1
+                row_audit["recordDuration_source"] = "copied_from_duration"
+                row_audit["recordDuration_reason"] = f"recordDuration was empty, copied value '{record_duration_raw}' from duration column."
+                row_modified = True
+            else:
+                record_duration_raw = 0.0
+                row_audit["recordDuration_source"] = "default_zero"
+                row_audit["recordDuration_reason"] = "Both recordDuration and duration were empty; defaulted to 0."
         else:
             row_audit["recordDuration_source"] = "original"
 
         try:
-            record_duration_seconds = float(record_duration_raw)
+            val = float(record_duration_raw)
+            record_duration_seconds = 0.0 if (math.isnan(val) or math.isinf(val)) else val
         except (ValueError, TypeError):
             record_duration_seconds = 0.0
 
         # --- Step 2: fill empty callBillingType from transcript, else keep as-is ---
         existing_status = row.get(COLUMN_MAP["call_status"])
-        existing_status_empty = pd.isna(existing_status) or str(existing_status).strip() == ""
+        existing_status_empty = pd.isna(existing_status) or str(existing_status).strip().lower() in ("", "nan", "none", "null")
 
         if existing_status_empty:
             transcript_text = row.get(COLUMN_MAP["transcript"])
@@ -192,7 +217,7 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
             stats["audit_rules_fired"][rule] = stats["audit_rules_fired"].get(rule, 0) + 1
             row_audit["callBillingType_source"] = rule
             row_audit["callBillingType_reason"] = audit_info["reason"]
-            row_audit["transcript"] = str(transcript_text) if transcript_text else ""
+            row_audit["transcript"] = clean_str(transcript_text)
             row_modified = True
             
             if not matched:
@@ -204,24 +229,24 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
 
         if row_modified:
             row_audit["phone"] = clean_phone(row.get(COLUMN_MAP["phone"]))
-            row_audit["member_id"] = str(row.get(COLUMN_MAP["member_id"], ""))
+            row_audit["member_id"] = clean_str(row.get(COLUMN_MAP["member_id"]))
             row_audit["row_index"] = idx + 1
             audit_trail.append(row_audit)
 
         # --- Step 3: compute callduration(mins) and billableunits ---
         call_duration_mins = round(record_duration_seconds / 60, 2)
         billable = billable_unit_for(status, call_duration_mins, formula_config)
-        if billable is None:
+        if billable is None or math.isnan(billable):
             stats["unrecognized_status_flagged"] += 1
             billable = 0.0  # default to 0 but this row is flagged above for manual review
         billable = round(billable, 2)
         stats["total_billable_units"] += billable
 
         out_rows.append({
-            "Member First Name": row.get(COLUMN_MAP["first_name"], ""),
-            "Member Last Name": row.get(COLUMN_MAP["last_name"], ""),
+            "Member First Name": clean_str(row.get(COLUMN_MAP["first_name"])),
+            "Member Last Name": clean_str(row.get(COLUMN_MAP["last_name"])),
             "Phone Number": clean_phone(row.get(COLUMN_MAP["phone"])),
-            "Member ID": row.get(COLUMN_MAP["member_id"], ""),
+            "Member ID": clean_str(row.get(COLUMN_MAP["member_id"])),
             "Call Status": status,
             "callduration(mins)": call_duration_mins,
             "billableunits": billable,

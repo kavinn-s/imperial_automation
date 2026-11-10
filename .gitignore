@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .env
 .venv/
+venv/
+backend/venv/
 backend/data/temp/
 frontend/node_modules/
 frontend/dist/

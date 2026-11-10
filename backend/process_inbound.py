@@ -48,7 +48,7 @@ def human_billable_unit(human_mins: float, config: dict = None) -> float:
     if config is None:
         config = {"increment_size": 3, "increment_cost": 0.15}
     
-    if human_mins == 0:
+    if human_mins is None or math.isnan(human_mins) or human_mins <= 0:
         return 0.0
     return math.ceil(human_mins / config["increment_size"]) * config["increment_cost"]
 
@@ -63,7 +63,7 @@ def ai_billable_unit(ai_mins: float, config: dict = None) -> float:
             "subsequent_increment_cost": 0.75
         }
         
-    if ai_mins <= config["free_threshold"]:
+    if ai_mins is None or math.isnan(ai_mins) or ai_mins <= config["free_threshold"]:
         return 0.0
     if ai_mins <= config["first_increment_limit"]:
         return config["first_increment_cost"]
@@ -80,15 +80,24 @@ def clean_phone(value) -> str:
     if pd.isna(value):
         return ""
     s = str(value).strip()
+    if s.lower() in ("nan", "none", "null", ""):
+        return ""
     if "E+" in s.upper():
         try:
             return str(int(float(s)))
-        except ValueError:
+        except (ValueError, OverflowError):
             return s
     # Strip a trailing ".0" pandas sometimes adds when a numeric column has NaNs
     if s.endswith(".0") and s[:-2].isdigit():
         return s[:-2]
     return s
+
+
+def clean_str(value) -> str:
+    if pd.isna(value):
+        return ""
+    s = str(value).strip()
+    return "" if s.lower() in ("nan", "none", "null") else s
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +132,7 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
 
     for _, row in df.iterrows():
         duration_raw = row.get(COLUMN_MAP["duration"])
-        duration_empty = pd.isna(duration_raw) or str(duration_raw).strip() == ""
+        duration_empty = pd.isna(duration_raw) or str(duration_raw).strip().lower() in ("", "nan", "none", "null")
 
         if duration_empty:
             stats["empty_duration_rows"] += 1
@@ -133,11 +142,12 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
 
         # --- parse transfer times, defaulting to 0 and flagging bad values ---
         def to_seconds(value):
-            if pd.isna(value) or str(value).strip() == "":
+            if pd.isna(value) or str(value).strip().lower() in ("", "nan", "none", "null"):
                 return 0.0
             try:
-                return float(value)
-            except ValueError:
+                v = float(value)
+                return 0.0 if (math.isnan(v) or math.isinf(v)) else v
+            except (ValueError, TypeError):
                 stats["bad_transfer_value_rows"] += 1
                 return 0.0
 
@@ -153,7 +163,7 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
         stats["total_billable_sum"] += total_bill
 
         out_rows.append({
-            "Caller Name": row.get(COLUMN_MAP["caller_name"], ""),
+            "Caller Name": clean_str(row.get(COLUMN_MAP["caller_name"])),
             "Caller Phone Number": clean_phone(row.get(COLUMN_MAP["caller_phone"])),
             "Call status": "HUMAN_ANSWERED",  # inbound: always normalized to this
             "Human duration(mins)": round(human_mins, 2),

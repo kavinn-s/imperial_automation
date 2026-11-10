@@ -1,11 +1,13 @@
 import os
 import shutil
 import tempfile
+import uuid
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import process_inbound
 import process_outbound
+import process_caregap
 
 app = FastAPI()
 
@@ -49,13 +51,14 @@ async def upload_file(
     if input_ext not in [".csv", ".xlsx", ".xls"]:
         return JSONResponse(status_code=400, content={"error": "Only CSV and Excel files are supported."})
     
-    # Save uploaded file temporarily
-    input_path = os.path.join(TEMP_DIR, f"upload{input_ext}")
+    # Save uploaded file temporarily with a UNIQUE secure ID
+    unique_id = str(uuid.uuid4())
+    input_path = os.path.join(TEMP_DIR, f"upload_{unique_id}{input_ext}")
     output_ext = f".{format.lower()}"
     if output_ext not in [".csv", ".xlsx", ".pdf"]:
         output_ext = ".csv"
         
-    output_path = os.path.join(TEMP_DIR, f"output{output_ext}")
+    output_path = os.path.join(TEMP_DIR, f"output_{unique_id}{output_ext}")
     
     with open(input_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -88,7 +91,9 @@ async def upload_file(
         
     try:
         # Call the appropriate processing logic based on callType
-        if callType == "outbound":
+        if callType == "caregap":
+            out_df, stats = process_caregap.process(input_path)
+        elif callType == "outbound":
             out_df, stats = process_outbound.process(input_path, formula_config)
         else:
             out_df, stats = process_inbound.process(input_path, formula_config)
@@ -103,9 +108,11 @@ async def upload_file(
             
         return {
             "stats": stats,
-            "download_url": f"/download?filename=output{output_ext}"
+            "download_url": f"/download?filename=output_{unique_id}{output_ext}"
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/download")

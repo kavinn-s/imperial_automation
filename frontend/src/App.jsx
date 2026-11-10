@@ -159,6 +159,12 @@ function App() {
             >
               Outbound Calls
             </button>
+            <button 
+              className={`mode-btn ${callType === 'caregap' ? 'active' : ''}`}
+              onClick={() => { setCallType('caregap'); reset(); }}
+            >
+              Caregap
+            </button>
           </div>
         </section>
 
@@ -225,7 +231,12 @@ function App() {
               
               {showConfig && (
                 <div className="config-panel slide-up">
-                  {callType === 'inbound' ? (
+                  {callType === 'caregap' ? (
+                    <div className="config-group">
+                      <h4>⚙️ Caregap Settings</h4>
+                      <p style={{marginTop: '10px', color: '#666'}}>Caregap rules are currently hardcoded to standard specifications. No configuration needed.</p>
+                    </div>
+                  ) : callType === 'inbound' ? (
                     <>
                       <div className="config-group">
                         <h4>🧑‍💻 Human Calls (Inbound)</h4>
