@@ -27,6 +27,39 @@ COLUMN_MAP = {
     "member_id": "prospectDetails.pCustomFields.MemberId",
 }
 
+MEMBER_ID_FALLBACKS = [
+    "prospectDetails.pCustomFields.MemberId",
+    "prospectDetails.pCustomFields.Member_Id",
+    "prospectDetails.pCustomFields.memberId",
+    "prospectDetails.pCustomFields.member_id",
+    "prospectDetails.MemberId",
+    "prospectDetails.Member_Id",
+    "member_id",
+    "memberId",
+    "memberid",
+    "MemberId",
+    "Member_Id",
+    "Member ID",
+    "member id",
+]
+
+def get_member_id(row) -> str:
+    # 1. Try each known column candidate in order
+    for col in MEMBER_ID_FALLBACKS:
+        if col in row:
+            val = clean_str(row.get(col))
+            if val:
+                return val
+    # 2. Case-insensitive / substring fallback across row index
+    if hasattr(row, "index"):
+        for key in row.index:
+            k_lower = str(key).strip().lower()
+            if "member" in k_lower and "id" in k_lower:
+                val = clean_str(row.get(key))
+                if val:
+                    return val
+    return ""
+
 OUTPUT_COLUMNS = [
     "Member First Name",
     "Member Last Name",
@@ -246,7 +279,7 @@ def process(input_path: str, formula_config: dict = None) -> tuple[pd.DataFrame,
             "Member First Name": clean_str(row.get(COLUMN_MAP["first_name"])),
             "Member Last Name": clean_str(row.get(COLUMN_MAP["last_name"])),
             "Phone Number": clean_phone(row.get(COLUMN_MAP["phone"])),
-            "Member ID": clean_str(row.get(COLUMN_MAP["member_id"])),
+            "Member ID": get_member_id(row),
             "Call Status": status,
             "callduration(mins)": call_duration_mins,
             "billableunits": billable,

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import process_inbound
 import process_outbound
 import process_caregap
+import batch_processor
 
 app = FastAPI()
 
@@ -114,6 +115,79 @@ async def upload_file(
         import traceback
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/upload-batch")
+async def upload_batch_file(
+    file: UploadFile = File(...),
+    humanIncrementSize: float = Form(3.0),
+    humanIncrementCost: float = Form(0.15),
+    aiFreeThreshold: float = Form(0.25),
+    aiFirstLimit: float = Form(3.0),
+    aiFirstCost: float = Form(0.75),
+    aiSubsequentSize: float = Form(3.0),
+    aiSubsequentCost: float = Form(0.75),
+    outboundHumanFreeThreshold: float = Form(0.25),
+    outboundHumanFirstLimit: float = Form(3.0),
+    outboundHumanFirstCost: float = Form(0.75),
+    outboundHumanSubsequentSize: float = Form(3.0),
+    outboundHumanSubsequentCost: float = Form(0.75),
+    outboundVoicemailDroppedCost: float = Form(0.25),
+):
+    # Validate file extension
+    input_ext = os.path.splitext(file.filename)[1].lower()
+    if input_ext not in [".zip"]:
+        return JSONResponse(status_code=400, content={"error": "Only ZIP files are supported for batch upload."})
+
+    unique_id = str(uuid.uuid4())
+    zip_path = os.path.join(TEMP_DIR, f"upload_batch_{unique_id}.zip")
+
+    with open(zip_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    formula_config = {
+        "inbound": {
+            "human": {
+                "increment_size": humanIncrementSize,
+                "increment_cost": humanIncrementCost,
+            },
+            "ai": {
+                "free_threshold": aiFreeThreshold,
+                "first_increment_limit": aiFirstLimit,
+                "first_increment_cost": aiFirstCost,
+                "subsequent_increment_size": aiSubsequentSize,
+                "subsequent_increment_cost": aiSubsequentCost,
+            }
+        },
+        "outbound": {
+            "human_answered": {
+                "free_threshold": outboundHumanFreeThreshold,
+                "first_increment_limit": outboundHumanFirstLimit,
+                "first_increment_cost": outboundHumanFirstCost,
+                "subsequent_increment_size": outboundHumanSubsequentSize,
+                "subsequent_increment_cost": outboundHumanSubsequentCost,
+            },
+            "voicemail_dropped_cost": outboundVoicemailDroppedCost
+        }
+    }
+
+    try:
+        output_filename, sheets, skipped = batch_processor.process_batch_zip(zip_path, formula_config)
+        return {
+            "sheets": sheets,
+            "skipped": skipped,
+            "download_url": f"/download?filename={output_filename}",
+            "filename": output_filename,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    finally:
+        if os.path.exists(zip_path):
+            try:
+                os.remove(zip_path)
+            except Exception:
+                pass
 
 @app.get("/download")
 def download_file(filename: str):
